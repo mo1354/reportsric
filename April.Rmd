@@ -1,0 +1,555 @@
+---
+output:
+  pdf_document:
+    latex_engine: xelatex
+mainfont: DejaVuSans
+sansfont: DejaVuSans
+monofont: DejaVuSans
+---
+
+<!-- chunk for loading packages,opening the data, organizing the data, and labeling the variables  -->
+```{r setup, include=FALSE}
+library(haven)
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
+library(kableExtra)
+library(janitor)
+library(expss)
+library(readxl)
+library(gtools)
+library(stringr)
+library(forcats)
+library(ggpie)
+library(viridis)
+library(extrafont)
+loadfonts(device = "all")
+reportnumbers<-read_excel("Full Data Download.xlsx")
+sric<-read_excel("Full Data Download.xlsx")
+sriccalls<-read_excel("chartnumbers.xlsx", sheet = "SRIC Hotline")
+sricspanish<-read_excel("chartnumbers.xlsx", sheet = "SpanishSpeaking")
+fortables<-read_excel("Full Data Download with month.xlsx")
+spanishtable<-read_excel("chartnumbers.xlsx", sheet = "SpanishTable")
+hotlinetable<-read_excel("chartnumbers.xlsx", sheet = "SRICHotlineTable")
+ethnicitymonth<-read_excel("Ethnicity Report March 2023nototal.xlsx")
+ethnicityyear<-read_excel("Ethnicity Report Year.xlsx")
+officetable<-read_excel("chartnumbers.xlsx", sheet = "Office")
+countytable<-read_excel("chartnumbers.xlsx", sheet = "County")
+#Set these each month!!
+  previousmonth <- "February"
+  currentmonth <- "March"
+  mthyr <- "March 2023"
+  #new inquiries
+  newinq <-354
+  #total with other
+  tototh <-551
+  #previous month inquiries
+  prevmonthinq <-170
+  #previous year inquriries
+  prevyearinq <-350
+  #total sric hotline calls
+  calt <-65
+  #previous months hotline calls
+  priorcalt <-41
+  #currently receiving spanish speaking support
+  spsupport <-77
+#calculating the percent change and text for the monthly intake number prev year
+  intakeyearchange <- (((newinq-prevyearinq)/prevyearinq))*100
+  intakeyearchange <- round(intakeyearchange, digits = 1)
+  itprevyearinsert <- abs(intakeyearchange)
+  itprevyearchange <- if (intakeyearchange>0) "increase" else "decrease"
+#calculating the percent change and text for the monthly intake number prev month
+  intakemonthchange <- (((newinq-prevmonthinq)/prevmonthinq))*100
+  intakemonthchange <- round(intakemonthchange, digits = 1)
+  itprevmonthinsert <- abs(intakemonthchange)
+  itprevmchange <- if (intakemonthchange>0) "increase" else "decrease"
+#calculating the percent change and text for the sric hotline
+  hotlinechange <- (((calt-priorcalt)/priorcalt))*100
+  hotlinechange <- round(hotlinechange, digits = 1)
+  hotlineinsert <- abs(hotlinechange)
+  hlchange <- if (hotlinechange>0) "increase" else "decrease"
+#subset the sric calls sheet for the appropriate month
+  srichotlinemonth <- subset(sriccalls, Month == "March")
+  sricspanishmonth <- subset(sricspanish, Month == "March")
+#subset the fortables sheet for the appropriate month
+  fortablesmonth <- subset(fortables, Month == "March")
+#subset intake three month for the correct range
+  intakethreemonth<-read_excel("chartnumbers.xlsx", sheet = "MonthlyIntakeGraph")
+  threemonthintake<-subset(intakethreemonth, Month == "January"|Month == "February"|Month =="March")
+#factor month dataset to change order
+  threemonthintake$Month<-factor(threemonthintake$Month, levels = c("January", "February", "March"))
+#subset fortables without other
+  fortablesnoother<-subset(fortables, Created != "Other")
+#subset fortablesmont without other
+  fortablesmonthnoother<-subset(fortablesmonth, Created != "Other")
+```
+
+\begin{center}
+\textbf{Statewide Recruitment Information Center(SRIC)\\Northwest Resource Associates(NWRA) - Monthly Report - `r mthyr`}
+\end{center}
+
+`r currentmonth` 2023 saw an `r itprevmchange` in the number of additions to the SRIC database over the previous month. Records created for the month were below historical averages. Numbers for this report are based on point-in-time counts for the current reporting month. Previous month totals and comparisons reflect previously reported totals.
+
+As of the April 2021 report we have a key change in terminology. Previous reports have referred to all SRIC record additions as potential foster parents (PFPs). At times though, families have been included in this category that are not potential caregivers, but are already providing care, or are father along in the licensing process than to be considered "potential". From now on, this report will only use the term "PFP" to refer to what can be considered new inquiries and will refer to the total number of entries added in a month as the number of records created.
+
+**In `r currentmonth` there were `r newinq` new PFPs added to the SRIC database. This represents a `r itprevyearinsert`% `r itprevyearchange` from the previous year (`r currentmonth` 2022).**
+
+\begin{center}
+\textbf{Statewide SRIC Intakes}
+\end{center}
+
+Records are entered into the SRIC database through five primary channels: questionnaires on the DCYF Website, Northwest Adoption Exchange, and AdoptUSKids websites, the SRIC toll free hotline, and directly by recruitment agency staff. **In `r currentmonth`, there were `r newinq` records entered into the SRIC database. This represents a `r itprevmonthinsert`% `r itprevmchange` from the previous month (`r previousmonth` 2023). Of the `r tototh` records entered this month, `r newinq` have been determined to be potential foster parent (PFP) intakes.** This number is calculated by filtering out new records who are a result of referrals to retention contractors for support related to first placement, license completion, and kinship placement support, as those families are not "new inquiries" but have already entered the DCYF system.
+
+```{r pie chart, echo=FALSE, fig.align='right', fig.height=4}
+createdtotal<-sric %>%
+  count(Created, name = "Total")
+createdtotal <- createdtotal%>%
+  arrange(desc(Created))%>%
+  mutate(prop = Total / sum(createdtotal$Total)*100) %>%
+  mutate(ypos = cumsum(prop)-0.5*prop)
+ggplot(createdtotal, aes(x="", y=prop, fill=Created)) + geom_bar(stat = "identity", width=1, color="white")+
+  coord_polar("y", start = 0)+theme_void()+geom_text(aes(y=ypos, label = Total, vjust=-1.65, hjust=1.3), color = "black", size=3.5) +
+  scale_fill_manual(values = c("firebrick1",
+                                     "springgreen",
+                                     "steelblue1"),
+                                     labels=c("NWAE/AUSK", "SRIC Hotline", "DCYF Website")) + 
+  ggtitle("PFP Intake by Source March 2023")+
+  theme(legend.key.size = unit(.5, 'cm'), legend.title = element_blank(), legend.position = "right" ,plot.title = element_text(family = "DejaVu Sans",hjust = .95, size = 10, face="bold"))
+```
+\newpage
+\begin{center}
+\textbf{PFP Intake by Region}
+\end{center}
+
+```{r intake line graph, fig.align='center', fig.width= 10, fig.height= 5, echo=FALSE}
+#Regional line graph
+linemonth <- read_excel("chartnumbers.xlsx", sheet = "LineGraph")
+linemonth %>%
+  ggplot(aes(x= factor(Month, level = c('January','February','March'))
+             , y=Total, group=Region, color=Region)) + 
+  geom_line(linewidth = 1.5) + 
+  scale_color_manual(values = c("yellow",
+                                       "cyan",
+                                       "limegreen",
+                                       "purple3",
+                                       "orange",
+                                       "red"))+
+  scale_y_continuous(breaks = seq(0, 120, by = 20)) + 
+  scale_x_discrete(expand = c(0, 0))+
+  xlab("")+
+  expand_limits(y=c(0,120))+
+  theme(
+    legend.position = "bottom", legend.box = "horizontal",legend.title = element_blank(),legend.background = element_blank(),  legend.key = element_rect(fill = "white"),
+    panel.border = element_blank(),
+    panel.grid.major = element_line(color = "grey"),
+    panel.grid.major.x = element_blank(),
+    panel.background = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.title.y = element_blank(),
+    axis.ticks = element_blank(),
+    text = element_text(family = "DejaVu Sans"))
+```
+
+\begin{center}
+\textbf{PFP Intake Monthly}
+\end{center}
+
+```{r, echo=FALSE}
+#PFP Intake Monthly Regional
+threemonthintake %>%
+  ggplot(aes(fill=Month, y=Amount, x=Region))+
+    geom_bar(position = "dodge",stat = "identity")+
+    geom_text(aes(label = Amount), 
+              color= "black",vjust = 1.5, position = position_dodge(.9))+
+    scale_fill_manual(values=c("cyan3",
+                                      "purple3",
+                                      "red3"))+
+    theme(legend.position = "bottom", legend.direction = "horizontal",legend.title = element_blank(),
+        axis.title.x = element_blank(), axis.title.y = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major.y = element_line(linewidth = 0.5, linetype = "solid", color = "lightgrey"),
+        panel.grid.major.x = element_blank(),
+        axis.ticks = element_blank(),
+        text = element_text(family = "DejaVu Sans"))
+```
+\newpage
+
+\begin{center}
+\textbf{New Records by Region and Type of Care}
+\end{center}
+
+Potential foster parent inquiries in the database indicate which type of care they are interested in providing. The charts below show the type of care new PFPs are interested in split up by region and statewide.
+
+\begin{center}
+\textbf{Interest type by Region `r mthyr`}
+\end{center}
+
+```{r interest stacked bar graph, echo=FALSE}
+#interest type region
+ggplot(reportnumbers, aes(x=Region, fill=Interest)) + 
+  geom_bar(stat = "count")+scale_y_continuous(limits = c(0,115))+
+  guides(fill=guide_legend(ncol=2))+
+  scale_fill_manual(values = c("yellow",
+                               "cyan",
+                               "limegreen",
+                               "purple4",
+                               "orange"))+
+  theme(legend.position = "bottom", legend.direction = "vertical",legend.title = element_blank(),
+        axis.title.x = element_blank(), axis.title.y = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major.y = element_line(linewidth = 0.5, linetype = "solid", color = "lightgrey"),
+        panel.grid.major.x = element_blank(),
+        axis.ticks = element_blank(),
+        text = element_text(family = "DejaVu Sans"))
+```
+
+\newpage
+\begin{center}
+\textbf{Interest type statewide `r mthyr`}
+\end{center}
+
+```{r, echo=FALSE}
+#interest type statewide
+ggplot(reportnumbers, aes(x=Interest, fill=Interest)) +
+  geom_bar(stat = "count") + scale_y_continuous(limits = c(0,195))+
+  guides(fill=guide_legend(ncol=2))+
+  scale_fill_manual(values = c("yellow",
+                               "cyan",
+                               "limegreen",
+                               "purple1",
+                               "orange"))+
+  geom_text(aes(label = after_stat(count)), stat = "count", vjust = 2, colour = "black")+
+  theme(legend.position = "bottom", legend.direction = "vertical",legend.title = element_blank(),
+        axis.title.x = element_blank(), axis.title.y = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major.y = element_line(linewidth = 0.5, linetype = "solid", color = "lightgrey"),
+        panel.grid.major.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank(),
+        text = element_text(family = "DejaVu Sans"))
+```
+
+\newpage
+
+\begin{center}
+\textbf{Toll Free Recruitment Line}
+\end{center}
+
+NWRA Staffs and operates the SRIC toll free recruitment line, 1-888-414-KIDS. When a potential foster parent (PFP) calls the toll free number, NWRA staff answers any questions the caller has about becoming a foster parent and if appropriate, collects the caller's information to be entered in the SRIC database so that the PFP can be assigned to the retention contractor for follow-up. **In `r currentmonth` 2023, there were `r calt` total calls to the SRIC recruitment line. This is a `r hotlineinsert`% `r hlchange` from the amount of calls in the previous month (`r previousmonth` 2023).**
+
+```{r toll free calls graph, echo=FALSE}
+#sric hotline 
+ggplot(srichotlinemonth, aes(x=Data, y=TotalCalls,fill=Data)) +
+  geom_bar(stat = "identity")+scale_y_continuous(limits = c(0,45))+
+  geom_text(aes(label=TotalCalls, vjust=2))+
+   theme(legend.position = "bottom", legend.direction = "horizontal",legend.title = element_blank(),
+        axis.title.x = element_blank(), axis.title.y = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major.y = element_line(linewidth = 0.5, linetype = "solid", color = "lightgrey"),
+        panel.grid.major.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank(),
+        text = element_text(family = "DejaVu Sans"))+
+  scale_fill_manual(values=c("red",
+                                          "orange",
+                                          "darkviolet"))
+```
+\newpage
+\begin{center}
+\textbf{Spanish-Speaking PFP Intakes}
+\end{center}
+
+Northwest Resource Associates’ Spanish-Speaking Family Support Specialist, Sandy Carter
+Templeman, engages and assists Spanish-speaking families through the foster care licensing
+process. This assistance generally includes, but is not limited to, walking families through the
+application packet, helping them sign up for necessary trainings, and connecting them with
+licensing staff in their area. **Currently Sandy is providing support services to `r spsupport` Spanish-speaking potential foster families.** 
+
+```{r spanish speaking graph, echo=FALSE}
+ggplot(sricspanishmonth, aes(x=Data, y=Totals,fill=Data)) +
+  geom_bar(stat = "identity")+
+  geom_text(aes(label=Totals, vjust=2))+
+   theme(legend.position = "bottom", legend.direction = "horizontal",legend.title = element_blank(),
+        axis.title.x = element_blank(), axis.title.y = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major.y = element_line(linewidth = 0.5, linetype = "solid", color = "lightgrey"),
+        panel.grid.major.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank(),
+        text = element_text(family = "DejaVu Sans"))+
+  scale_fill_manual(values=c("darkviolet",
+                                          "red",
+                                          "orange"))
+```
+
+
+\newpage
+\begin{center}
+\textbf{Targeted Recruitment Strategy}
+\end{center}
+
+As PFPs are entered into the SRIC, they are sorted into two tracks for response; a general pool and a targeted recruitment poll that receives additional support and follow up. The groups in the targeted recruitment pool include: all PFPs in a high removal zipcode and PFPs who are interested in Kinship Care. There are 30 high removal zipcodes; 5 zipcodes for each DCYF region with the highest child removal rates. The chart below shows the two targeted categories by region, as well as those who fall into the general pool. **Statewide, 9.3% were in the High Removal category, 6.2% were in the Kinship category, and 84.5% fit into neither category. This data is only for PFPs entered into the SRIC through the DCYF website, SRIC Recruitment line, or the AdoptWAKids/NWAE websites.**
+
+```{r targetregion, echo=FALSE}
+#interest type region
+ggplot(reportnumbers, aes(x=Region, fill=Targeted)) + 
+  geom_bar(stat = "count")+scale_y_continuous(limits = c(0,115))+
+  guides(fill=guide_legend(ncol=2))+
+  scale_fill_manual(values = c("yellow",
+                                       "cyan",
+                                       "limegreen"))+
+  theme(legend.position = "bottom", legend.direction = "horizontal",legend.title = element_blank(),
+        axis.title.x = element_blank(), axis.title.y = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major.y = element_line(linewidth = 0.5, linetype = "solid", color = "lightgrey"),
+        panel.grid.major.x = element_blank(),
+        axis.ticks = element_blank(),
+        text = element_text(family = "DejaVu Sans"))
+```
+
+```{r, echo=FALSE}
+fortablesmonthnoother%>%
+  tabyl(Targeted, Region)%>%
+  kable("latex", booktabs = T, linesep = "", escape = F, align = "c")%>%
+  kable_styling(latex_options = "HOLD_position", position = "center")
+```
+
+
+\newpage
+\begin{center}
+\textbf{Technical Support}
+\end{center}
+
+In the month of March SRIC staff provided support to CaRES staff who were locked out of the Tableau account and ran their monthly reports until access was restored.
+
+\begin{center}
+\textbf{Recruitment Database Support}
+\end{center}
+
+In the month of March SRIC staff created a new version of the monthly data pull worksheet in Tableau to include only PFPs who were in one of the High Removal Zipcodes. SRIC staff also checked in with CaRES about a reporting discrepancy with kinship contacts between the Tableau reports and their hand count totals.
+<br>
+<br>
+
+Questions about this report can be directed to SRIC Project Manger, Tyler Helbach, thelbach@nwresource.org.
+
+\newpage
+\begin{center}
+\textbf{SRIC Intake Data}
+\end{center}
+
+Beginning with the June 2021 report, these data tables have been edited to better reflect the data presented above. The data in each table is only the number of new PFP inquiries, that is, those which come from the questionnaires on the DCYF Website, Northwest Adoption Exchange and AdoptUSKids websites, and the SRIC toll free hotline. **In the June 2021 report, April and May totals were updated to include only new PFP inquiries.**
+
+While the adjustment has been made to update the majority of the data tables to better document the pool of PFPs, the first two tables in this dataset do still include all entries into the SRIC. These tables are differentiated by not being labeled as including "PFP" information, but include the title "Records created". The "Other" category in those two tables primarily includes PFPs entered directly by recruitment agency staff and Spanish-speaking intakes.
+
+\begin{center}
+\textbf{Records Created by Source - 2023}
+\end{center}
+
+```{r Records Source 3, echo=FALSE}
+#Records by source full year table
+#Convert values to factor to reorder them in the table
+fortables$Month<-as.factor(fortables$Month)
+fortables$Month<-factor(fortables$Month, levels = c("January", "February","March"))
+fortables$Created<-as.factor(fortables$Created)
+fortables$Created<-factor(fortables$Created, levels = c("Website", "AUSK/NWAE", "SRIC Hotline", "Other"))
+fortables%>%
+  tabyl(Month,Created)%>%
+  adorn_totals("col")%>%
+  mutate_all(linebreak)%>%
+  kable("latex", booktabs = T, escape = F, align = "c",
+        col.names = linebreak(c("Month","Website","AUSK\nNWAE","SRIC\nHotline","Other","Total")))%>%
+  kable_styling(latex_options = "HOLD_position", position = "center")
+```
+
+\begin{center}
+\textbf{Records Created by Region and Source `r mthyr`}
+\end{center}
+
+```{r Region Source Table, echo=FALSE}
+#Region by source table
+#factor the created category to reorder
+fortablesmonth$Created<-as.factor(fortablesmonth$Created)
+fortablesmonth$Created<-factor(fortablesmonth$Created, levels = c("Website", "AUSK/NWAE", "SRIC Hotline", "Other"))
+fortablesmonth%>%
+  tabyl(Region,Created)%>%
+  adorn_totals("col")%>%
+  kbl("latex", booktabs = T,linesep = "", align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), latex_options = "HOLD_position")
+```
+
+\begin{center}
+\textbf{New PFP Inquiries by Region - 2023}
+\end{center}
+
+```{r region inquiries, echo=FALSE}
+#Inquiries by region
+regsource<-table(fortables$Region, fortables$Month)
+fortablesnoother%>%
+  tabyl(Region, Month)%>%
+  adorn_totals("row")%>%
+  kbl("latex", booktabs = T,linesep = "", align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), latex_options = "HOLD_position") %>% 
+  row_spec(7, bold = T)
+```
+\newpage
+\begin{center}
+\textbf{Interest Type by Region}
+\end{center}
+
+```{r Region interest, echo=FALSE}
+#Interest type by region
+fortablesmonthnoother%>%
+  tabyl(Interest,Region)%>%
+  adorn_totals("row")%>%
+  kbl("latex", booktabs = T,linesep = "", align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), latex_options = "HOLD_position", font_size = 8) %>% 
+  row_spec(6, bold = T)
+```
+
+\begin{center}
+\textbf{Spanish Speaking Families}
+\end{center}
+
+```{r Spanish Speaking, echo=FALSE}
+#Spanish speaking
+kable(spanishtable, "latex", booktabs = T,linesep = "", align = "c")%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), latex_options = "HOLD_position")
+```
+
+\begin{center}
+\textbf{Statewide Toll-Free Recruitment Line Calls}
+\end{center}
+
+```{r SRIC hotline, echo=FALSE}
+#SRIC Hotline
+kable(hotlinetable, "latex", booktabs = T,linesep = "", align = "c")%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), latex_options = "HOLD_position")
+```
+
+\begin{center}
+\textbf{`r mthyr` Regional - High Removal Zip Code Caregivers}
+\end{center}
+
+```{r High Removal regional, echo=FALSE}
+#High removal vs not high removal
+hrnothr<-sric
+hrnothr%>%
+  mutate(TargetedFactor = factor(Targeted)%>%
+           fct_recode(
+             "Not High Removal"= "None",
+             "Not High Removal"= "Kinship"
+           ))%>%
+  tabyl(Region,TargetedFactor)%>%
+  adorn_totals("row")%>%
+  kable("latex", booktabs = T,linesep = "", align = "c")%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), latex_options = "HOLD_position")%>%
+  row_spec(7, bold = T)
+```
+
+\begin{center}
+\textbf{High Removal Zip Code Caregivers by Interest Type `r mthyr`}
+\end{center}
+
+```{r high removal by interest type, echo=FALSE}
+#High removal by interest type
+#Subset to only high removal
+srichighremoval <- subset(sric, Targeted == "High Removal Zip Code")
+srichighremoval%>%
+  tabyl(Interest,Region)%>%
+  adorn_totals("row")%>%
+  kable("latex", booktabs = T,linesep = "", align = "c")%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), latex_options = "HOLD_position", font_size = 8)%>%
+  row_spec(4, bold = T)
+```
+\newpage
+\begin{center}
+\textbf{Targeted Records Statewide by Month}
+\end{center}
+
+```{r targeted statewide by month, echo=FALSE}
+#Targeted records statewide by month
+fortablesnoother%>%
+  tabyl(Month, Targeted)%>%
+  kable("latex", booktabs = T,linesep = "", align = "c")%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), latex_options = "HOLD_position")
+```
+
+\begin{center}
+\textbf{Interest Type Statewide by Month}
+\end{center}
+
+```{r interest type statewide by month, echo=FALSE}
+#Interest type statewide by month
+fortablesnoother%>%
+  tabyl(Month, Interest)%>%
+  kable("latex", booktabs = T,linesep = "", escape = F, align = "l", 
+        col.names = linebreak(c("Month","Adoption from\nFoster Care","Extended\nFosterCare","   General\nFoster Care","Kinship","Short Term\nFoster Care")))%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), latex_options = "HOLD_position")
+```
+\newpage
+\begin{center}
+\textbf{All Records Ethnicity Breakdown - YTD}
+\end{center}
+
+```{r, echo=FALSE}
+#ethnicity report year to date
+ethnicityyear%>%
+  kable("latex", booktabs = T,linesep = "", align = "c")%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), latex_options = "HOLD_position",font_size = 8)%>%
+  column_spec(2, color = "black", background = spec_color(ethnicityyear$`Region 1`,begin = .5, end = 1, option = "mako", direction = -1, na_color = "white"))%>%
+column_spec(3, color = "black", background = spec_color(ethnicityyear$`Region 2`,begin = .5, end = 1, option = "mako", direction = -1, na_color = "white"))%>%
+  column_spec(4, color = "black", background = spec_color(ethnicityyear$`Region 3`,begin = .5, end = 1, option = "mako", direction = -1, na_color = "white"))%>%
+  column_spec(5, color = "black", background = spec_color(ethnicityyear$`Region 4`,begin = .5, end = 1, option = "mako", direction = -1, na_color = "white"))%>%
+  column_spec(6, color = "black", background = spec_color(ethnicityyear$`Region 5`,begin = .5, end = 1, option = "mako", direction = -1, na_color = "white"))%>%
+  column_spec(7, color = "black", background = spec_color(ethnicityyear$`Region 6`,begin = .5, end = 1, option = "mako", direction = -1, na_color = "white"))
+```
+
+\begin{center}
+\textbf{All Records Ethnicity Breakdown - `r mthyr`}
+\end{center}
+
+```{r ethnicity 3, echo=FALSE}
+ethnicitymonth%>%
+  kable("latex", booktabs = T,linesep = "", align = "c")%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), latex_options = "HOLD_position",font_size = 8)%>%
+  column_spec(2, color = "black", background = spec_color(ethnicitymonth$`Region 1`,begin = .5, end = 1, option = "mako", direction = -1, na_color = "white"))%>%
+  column_spec(3, color = "black", background = spec_color(ethnicitymonth$`Region 2`,begin = .5, end = 1, option = "mako", direction = -1, na_color = "white"))%>%
+  column_spec(4, color = "black", background = spec_color(ethnicitymonth$`Region 3`,begin = .5, end = 1, option = "mako", direction = -1, na_color = "white"))%>%
+  column_spec(5, color = "black", background = spec_color(ethnicitymonth$`Region 4`,begin = .5, end = 1, option = "mako", direction = -1, na_color = "white"))%>%
+  column_spec(6, color = "black", background = spec_color(ethnicitymonth$`Region 5`,begin = .5, end = 1, option = "mako", direction = -1, na_color = "white"))%>%
+  column_spec(7, color = "black", background = spec_color(ethnicitymonth$`Region 6`,begin = .5, end = 1, option = "mako", direction = -1, na_color = "white"))%>%
+  row_spec(10, background = "white")
+```
+
+\begin{center}
+\textit{Total numbers from ethnicity reports do not match the total number of PFPs added as respondents are able to select more than one ethnicity per PFP.}
+\end{center}
+
+\newpage
+\begin{center}
+\textbf{SRIC New Potential Foster Parent Intakes by Office - `r mthyr`}
+\end{center}
+
+```{r office, echo=FALSE}
+#office totals table
+officetable%>%
+  kable("latex", booktabs = T,linesep = "", align = "c")%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), latex_options = "HOLD_position", font_size = 10)%>%
+  row_spec(48, bold = T)
+```
+\newpage
+\begin{center}
+\textbf{SRIC New Potential Foster Parent Intakes by County - `r mthyr`}
+\end{center}
+
+```{r county, echo=FALSE}
+#county totals table
+countytable%>%
+  kable("latex", booktabs = T,linesep = "", align = "c")%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), latex_options = "HOLD_position")%>%
+  row_spec(41, bold = T)
+```
+
+
+
+
